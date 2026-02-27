@@ -1,0 +1,15 @@
+{
+  "appName": "Necro Boss Monitor",
+  "description": "Necromancy bossing alerts — buffs, HP, prayer, FINGER and VOLLEY.",
+  "appUrl": "./index.html",
+  "configUrl": "./appconfig.json",
+  "defaultWidth": 320,
+  "defaultHeight": 600,
+  "minWidth": 280,
+  "minHeight": 400,
+  "maxWidth": 500,
+  "maxHeight": 900,
+  "requestHandlers": [],
+  "activators": [],
+  "permissions": "pixel,gamestate,overlay"
+}

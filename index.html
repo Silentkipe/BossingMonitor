@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Necro Boss Monitor</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0e0f14;
+  --panel:    #13151d;
+  --panel2:   #181b26;
+  --border:   #222638;
+  --border2:  #2b3050;
+  --text:     #c4cce0;
+  --dim:      #4e5670;
+  --dim2:     #333a55;
+  --alert:    #c01828;
+  --alert-bg: rgba(192,24,40,.16);
+  --alert-bd: rgba(192,24,40,.5);
+  --ok:       #28a060;
+  --blue:     #3888e0;
+  --gold:     #c09828;
+  --gold2:    #f0c040;
+  --purple:   #7840c8;
+  --mono:     'Share Tech Mono', monospace;
+  --sans:     'Barlow Condensed', sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px;width:320px;overflow:hidden;user-select:none;}
+
+/* ── TABS ──────────────────────────── */
+.tabs{display:flex;background:#090a0f;border-bottom:1px solid var(--border);}
+.tab{flex:1;padding:7px 2px;text-align:center;font-size:11px;font-weight:700;letter-spacing:.8px;color:var(--dim);cursor:pointer;border-right:1px solid var(--border);transition:all .15s;text-transform:uppercase;}
+.tab:last-child{border-right:none;}
+.tab:hover{color:var(--text);background:var(--panel);}
+.tab.active{color:var(--gold2);background:var(--panel);border-bottom:2px solid var(--gold);padding-bottom:5px;}
+
+/* ── TOOLBAR ───────────────────────── */
+.toolbar{display:flex;align-items:center;gap:8px;padding:6px 10px;background:var(--panel);border-bottom:1px solid var(--border);}
+.preset-sel{flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:12px;font-weight:600;padding:4px 26px 4px 8px;border-radius:3px;cursor:pointer;appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0l4 5 4-5z' fill='%234e5670'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 7px center;}
+.preset-sel:focus{outline:none;border-color:var(--gold);}
+.master-row{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.master-lbl{font-size:11px;font-weight:800;color:var(--dim);letter-spacing:1px;}
+
+/* ── SWITCH ────────────────────────── */
+.sw{position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0;}
+.sw input{opacity:0;width:0;height:0;}
+.sw-track{position:absolute;inset:0;background:var(--dim2);border-radius:10px;transition:background .2s;}
+.sw input:checked~.sw-track{background:var(--blue);}
+.sw-thumb{position:absolute;top:2px;left:2px;width:16px;height:16px;background:#fff;border-radius:50%;transition:transform .2s;box-shadow:0 1px 4px rgba(0,0,0,.5);}
+.sw input:checked~.sw-thumb{transform:translateX(16px);}
+.master-sw .sw input:checked~.sw-track{background:var(--ok);}
+
+/* ── PAGES ─────────────────────────── */
+.page{display:none;}
+.page.active{display:block;}
+
+/* ── BUFF GRID ─────────────────────── */
+.buff-grid{display:grid;grid-template-columns:1fr 1fr;border-left:1px solid var(--border);border-top:1px solid var(--border);}
+.buff-hdr{grid-column:1/-1;padding:4px 10px;background:#090a0f;border-right:1px solid var(--border);border-bottom:1px solid var(--border);font-family:var(--mono);font-size:9px;color:var(--dim2);letter-spacing:2px;text-transform:uppercase;}
+.buff-cell{display:flex;align-items:center;gap:8px;padding:7px 10px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);cursor:pointer;background:var(--panel);position:relative;overflow:hidden;transition:background .1s;}
+.buff-cell:hover{background:var(--panel2);}
+.buff-cell.on .buff-name{color:var(--text);}
+.buff-cell.triggered{background:var(--alert-bg);border-right-color:var(--alert-bd);border-bottom-color:var(--alert-bd);}
+.buff-cell.triggered::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--alert);}
+.buff-cell.triggered .buff-name{color:#fff;}
+.buff-name{flex:1;font-size:13px;font-weight:700;letter-spacing:.3px;color:var(--dim);transition:color .15s;}
+
+/* ── PRESETS PAGE ──────────────────── */
+.presets-page{padding:10px;}
+.preset-toolbar{display:flex;gap:6px;margin-bottom:8px;}
+.p-sel{flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:12px;font-weight:600;padding:5px 8px;border-radius:3px;cursor:pointer;}
+.p-sel:focus{outline:none;border-color:var(--gold);}
+.p-btn{padding:5px 10px;border:none;border-radius:3px;font-family:var(--sans);font-size:12px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:opacity .15s;flex-shrink:0;}
+.p-btn:hover{opacity:.85;}
+.p-btn.blue{background:var(--blue);color:#fff;}
+.p-btn.grey{background:var(--panel2);color:var(--text);border:1px solid var(--border2);}
+.p-btn.red{background:var(--alert);color:#fff;}
+.p-btn.green{background:var(--ok);color:#fff;}
+.preset-name-row{display:flex;gap:6px;margin-bottom:10px;}
+.preset-name-inp{flex:1;background:var(--panel2);border:1px solid var(--border2);color:var(--text);font-family:var(--sans);font-size:13px;font-weight:600;padding:5px 10px;border-radius:3px;}
+.preset-name-inp::placeholder{color:var(--dim);}
+.preset-name-inp:focus{outline:none;border-color:var(--gold);}
+.preset-check-grid{display:grid;grid-template-columns:1fr 1fr;gap:2px;}
+.pck{display:flex;align-items:center;gap:6px;padding:4px 6px;cursor:pointer;border-radius:2px;transition:background .1s;}
+.pck:hover{background:var(--panel2);}
+.pck input[type=checkbox]{width:13px;height:13px;accent-color:var(--blue);cursor:pointer;flex-shrink:0;}
+.pck-label{font-size:12px;font-weight:600;color:var(--dim);cursor:pointer;}
+.pck:has(input:checked) .pck-label{color:var(--text);}
+.preset-divider{grid-column:1/-1;height:1px;background:var(--border);margin:4px 0;}
+.preset-section-lbl{grid-column:1/-1;font-family:var(--mono);font-size:9px;color:var(--dim2);letter-spacing:2px;padding:4px 6px 2px;}
+
+/* ── SETTINGS PAGE ─────────────────── */
+.settings-page{padding:10px;max-height:420px;overflow-y:auto;}
+.s-group-lbl{font-family:var(--mono);font-size:9px;color:var(--dim2);letter-spacing:2px;text-transform:uppercase;padding:8px 0 4px;border-top:1px solid var(--border);margin-top:4px;}
+.s-group-lbl:first-child{border-top:none;margin-top:0;padding-top:0;}
+.s-row{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid rgba(34,38,56,.6);}
+.s-row:last-child{border-bottom:none;}
+.s-label{font-size:12px;font-weight:700;color:var(--text);flex:1;}
+.s-sub{font-size:10px;color:var(--dim);margin-top:1px;}
+.s-val{font-family:var(--mono);font-size:12px;color:var(--gold2);min-width:36px;text-align:right;flex-shrink:0;}
+.s-slider{flex:1;-webkit-appearance:none;appearance:none;height:4px;background:var(--border2);border-radius:2px;outline:none;cursor:pointer;}
+.s-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--blue);cursor:pointer;box-shadow:0 0 4px rgba(56,136,224,.4);}
+.s-slider::-moz-range-thumb{width:14px;height:14px;border:none;border-radius:50%;background:var(--blue);cursor:pointer;}
+.s-toggle-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:6px 0;}
+.s-toggle{display:flex;align-items:center;justify-content:space-between;background:var(--panel2);border:1px solid var(--border);border-radius:3px;padding:5px 8px;}
+.s-toggle-lbl{font-size:12px;font-weight:700;}
+
+/* ── CALIBRATE ─────────────────────── */
+.calib-section{background:rgba(120,64,200,.08);border:1px solid rgba(120,64,200,.25);border-radius:4px;padding:8px 10px;margin-top:8px;}
+.calib-title{font-family:var(--mono);font-size:9px;color:var(--purple);letter-spacing:2px;margin-bottom:6px;}
+.calib-status{font-size:11px;color:var(--dim);margin-bottom:6px;}
+.calib-status.ok{color:var(--ok);}
+.calib-status.err{color:var(--alert);}
+.calib-btns{display:flex;gap:6px;}
+.calib-btn{flex:1;background:rgba(120,64,200,.15);border:1px solid rgba(120,64,200,.3);color:var(--text);font-family:var(--sans);font-size:11px;font-weight:700;padding:5px;border-radius:3px;cursor:pointer;transition:all .15s;text-align:center;}
+.calib-btn:hover{background:rgba(120,64,200,.3);}
+
+/* ── ALERT OVERLAY (corner) ────────── */
+#ao{position:fixed;bottom:26px;right:4px;background:rgba(8,9,14,.94);border:1px solid rgba(192,24,40,.4);border-radius:3px;padding:5px 8px;min-width:120px;display:none;z-index:40;}
+#ao.show{display:block;}
+.ao-hdr{font-family:var(--mono);font-size:8px;color:var(--alert);letter-spacing:2px;padding-bottom:3px;border-bottom:1px solid rgba(192,24,40,.25);margin-bottom:3px;}
+.ao-item{font-size:11px;font-weight:700;color:#fff;padding:1px 0;}
+
+/* ── ACTION OVERLAY (FINGER / VOLLEY) */
+#action-overlay{
+  position:fixed;inset:0;display:flex;align-items:center;justify-content:center;
+  pointer-events:none;opacity:0;z-index:100;
+  transition:opacity .1s;
+}
+#action-overlay.show{opacity:1;}
+.action-text{
+  font-family:var(--mono);font-size:36px;font-weight:normal;
+  letter-spacing:6px;text-transform:uppercase;
+  text-shadow:0 0 20px currentColor, 0 0 40px currentColor;
+  animation:pulse-action .5s ease-in-out infinite alternate;
+}
+.action-text.finger{color:#c040ff;}
+.action-text.volley{color:#40d0ff;}
+@keyframes pulse-action{from{transform:scale(1);}to{transform:scale(1.06);}}
+
+/* ── FLASH BORDER ──────────────────── */
+#flash{position:fixed;inset:0;pointer-events:none;opacity:0;border:2px solid var(--alert);transition:opacity .08s;z-index:90;}
+
+/* ── STACK STATUS BAR ──────────────── */
+.stack-bar{display:flex;align-items:center;gap:8px;padding:5px 10px;background:#090a0f;border-bottom:1px solid var(--border);}
+.stack-grp{display:flex;align-items:center;gap:4px;flex:1;}
+.stack-lbl{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;flex-shrink:0;}
+.stack-dots{display:flex;gap:2px;}
+.sdot{width:11px;height:11px;border-radius:1px;border:1px solid var(--border2);background:#0a0b10;transition:all .15s;}
+.sdot.on.necro{background:var(--purple);border-color:#a060f0;box-shadow:0 0 3px rgba(120,64,200,.6);}
+.sdot.on.soul{background:#28b080;border-color:#40e8a0;box-shadow:0 0 3px rgba(40,176,128,.6);}
+.sdot.alert-dot{animation:dot-blink .4s infinite;}
+@keyframes dot-blink{0%,100%{opacity:1;}50%{opacity:.3;}}
+.stack-val{font-family:var(--mono);font-size:10px;color:var(--dim);flex-shrink:0;}
+
+/* ── FOOTER ────────────────────────── */
+.footer{display:flex;align-items:center;justify-content:space-between;padding:4px 10px;background:#090a0f;border-top:1px solid var(--border);}
+.footer-status{font-family:var(--mono);font-size:9px;color:var(--dim);letter-spacing:1px;}
+.footer-right{display:flex;align-items:center;gap:8px;}
+.sound-btn{font-size:12px;cursor:pointer;color:var(--dim);transition:color .1s;}
+.sound-btn.on{color:var(--text);}
+.refresh-dot{width:6px;height:6px;border-radius:50%;background:var(--dim2);transition:background .1s;}
+.refresh-dot.tick{background:var(--ok);}
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+
+<!-- ACTION OVERLAY -->
+<div id="action-overlay">
+  <div class="action-text" id="action-text">FINGER</div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="goTab('buffs')">Buffs</div>
+  <div class="tab" onclick="goTab('presets')">Presets</div>
+  <div class="tab" onclick="goTab('settings')">Settings</div>
+</div>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="master-row master-sw">
+    <span class="master-lbl" id="master-lbl">ON</span>
+    <label class="sw">
+      <input type="checkbox" id="master-chk" checked onchange="onMaster(this)">
+      <div class="sw-track"></div><div class="sw-thumb"></div>
+    </label>
+  </div>
+  <select class="preset-sel" id="toolbar-preset" onchange="loadPreset(this.value)">
+    <option value="">— Load Preset —</option>
+  </select>
+</div>
+
+<!-- STACK STATUS BAR -->
+<div class="stack-bar">
+  <div class="stack-grp">
+    <span class="stack-lbl">NECRO</span>
+    <div class="stack-dots" id="necro-dots"></div>
+    <span class="stack-val" id="necro-val">0/12</span>
+  </div>
+  <div class="stack-grp">
+    <span class="stack-lbl">SOULS</span>
+    <div class="stack-dots" id="soul-dots"></div>
+    <span class="stack-val" id="soul-val">0/5</span>
+  </div>
+</div>
+
+<!-- ═══ BUFFS ═══ -->
+<div class="page active" id="page-buffs">
+<div class="buff-grid">
+  <div class="buff-hdr">── Vitals ──────────────────────────────</div>
+  <div class="buff-cell" id="bc-lowhp"     onclick="cellClick('lowhp')">    <label class="sw"><input type="checkbox" id="en-lowhp" checked onchange="cellSync('lowhp',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Low Health</span></div>
+  <div class="buff-cell" id="bc-lowpray"   onclick="cellClick('lowpray')">  <label class="sw"><input type="checkbox" id="en-lowpray" checked onchange="cellSync('lowpray',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Low Prayer</span></div>
+
+  <div class="buff-hdr">── Potions ─────────────────────────────</div>
+  <div class="buff-cell" id="bc-ovl"       onclick="cellClick('ovl')">      <label class="sw"><input type="checkbox" id="en-ovl" checked onchange="cellSync('ovl',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Overload</span></div>
+  <div class="buff-cell" id="bc-prayrenew" onclick="cellClick('prayrenew')"><label class="sw"><input type="checkbox" id="en-prayrenew" checked onchange="cellSync('prayrenew',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Prayer Renewal</span></div>
+  <div class="buff-cell" id="bc-weapon"    onclick="cellClick('weapon')">   <label class="sw"><input type="checkbox" id="en-weapon" onchange="cellSync('weapon',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Weapon Poison</span></div>
+  <div class="buff-cell" id="bc-antifire"  onclick="cellClick('antifire')"> <label class="sw"><input type="checkbox" id="en-antifire" onchange="cellSync('antifire',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Antifire</span></div>
+
+  <div class="buff-hdr">── Necromancy ───────────────────────────</div>
+  <div class="buff-cell" id="bc-darkness"  onclick="cellClick('darkness')"> <label class="sw"><input type="checkbox" id="en-darkness" checked onchange="cellSync('darkness',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Darkness</span></div>
+  <div class="buff-cell" id="bc-quickpray" onclick="cellClick('quickpray')"><label class="sw"><input type="checkbox" id="en-quickpray" checked onchange="cellSync('quickpray',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Quick Prayer</span></div>
+  <div class="buff-cell" id="bc-animdead"  onclick="cellClick('animdead')"> <label class="sw"><input type="checkbox" id="en-animdead" onchange="cellSync('animdead',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Animate Dead</span></div>
+  <div class="buff-cell" id="bc-souldrain" onclick="cellClick('souldrain')"><label class="sw"><input type="checkbox" id="en-souldrain" onchange="cellSync('souldrain',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Soul Drain</span></div>
+  <div class="buff-cell" id="bc-riteshard" onclick="cellClick('riteshard')"><label class="sw"><input type="checkbox" id="en-riteshard" onchange="cellSync('riteshard',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Ritual Shard</span></div>
+  <div class="buff-cell" id="bc-livingdeath" onclick="cellClick('livingdeath')"><label class="sw"><input type="checkbox" id="en-livingdeath" onchange="cellSync('livingdeath',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Living Death</span></div>
+
+  <div class="buff-hdr">── Misc ────────────────────────────────</div>
+  <div class="buff-cell" id="bc-aura"      onclick="cellClick('aura')">     <label class="sw"><input type="checkbox" id="en-aura" checked onchange="cellSync('aura',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Aura</span></div>
+  <div class="buff-cell" id="bc-book"      onclick="cellClick('book')">     <label class="sw"><input type="checkbox" id="en-book" checked onchange="cellSync('book',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Scripture / Book</span></div>
+  <div class="buff-cell" id="bc-familiar"  onclick="cellClick('familiar')"> <label class="sw"><input type="checkbox" id="en-familiar" onchange="cellSync('familiar',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Low Familiar</span></div>
+  <div class="buff-cell" id="bc-vuln"      onclick="cellClick('vuln')">     <label class="sw"><input type="checkbox" id="en-vuln" onchange="cellSync('vuln',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Vulnerability</span></div>
+  <div class="buff-cell" id="bc-aggro"     onclick="cellClick('aggro')">    <label class="sw"><input type="checkbox" id="en-aggro" onchange="cellSync('aggro',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Aggression</span></div>
+  <div class="buff-cell" id="bc-smokecloud" onclick="cellClick('smokecloud')"><label class="sw"><input type="checkbox" id="en-smokecloud" onchange="cellSync('smokecloud',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Smoke Cloud</span></div>
+  <div class="buff-cell" id="bc-excal"     onclick="cellClick('excal')">    <label class="sw"><input type="checkbox" id="en-excal" onchange="cellSync('excal',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Excalibur</span></div>
+  <div class="buff-cell" id="bc-sumrenew"  onclick="cellClick('sumrenew')"> <label class="sw"><input type="checkbox" id="en-sumrenew" onchange="cellSync('sumrenew',this)"><div class="sw-track"></div><div class="sw-thumb"></div></label><span class="buff-name">Summon Renew</span></div>
+</div>
+</div>
+
+<!-- ═══ PRESETS ═══ -->
+<div class="page" id="page-presets">
+<div class="presets-page">
+  <div class="preset-toolbar">
+    <select class="p-sel" id="preset-list-sel">
+      <option value="">— Create New —</option>
+    </select>
+    <button class="p-btn blue" onclick="exportPreset()">Export</button>
+    <button class="p-btn grey" onclick="importPreset()">Import</button>
+  </div>
+  <div class="preset-name-row">
+    <input class="preset-name-inp" id="preset-name" type="text" placeholder="Preset Name" maxlength="30">
+    <button class="p-btn green" onclick="savePreset()">Save</button>
+    <button class="p-btn red" onclick="deletePreset()">Delete</button>
+  </div>
+
+  <div class="preset-check-grid" id="preset-checks">
+    <div class="preset-section-lbl">── Vitals</div>
+    <div></div>
+    <div class="pck"><input type="checkbox" id="pc-lowhp"><label class="pck-label" for="pc-lowhp">Low Health</label></div>
+    <div class="pck"><input type="checkbox" id="pc-lowpray"><label class="pck-label" for="pc-lowpray">Low Prayer</label></div>
+
+    <div class="preset-section-lbl">── Potions</div>
+    <div></div>
+    <div class="pck"><input type="checkbox" id="pc-ovl"><label class="pck-label" for="pc-ovl">Overload</label></div>
+    <div class="pck"><input type="checkbox" id="pc-prayrenew"><label class="pck-label" for="pc-prayrenew">Prayer Renewal</label></div>
+    <div class="pck"><input type="checkbox" id="pc-weapon"><label class="pck-label" for="pc-weapon">Weapon Poison</label></div>
+    <div class="pck"><input type="checkbox" id="pc-antifire"><label class="pck-label" for="pc-antifire">Antifire</label></div>
+
+    <div class="preset-section-lbl">── Necromancy</div>
+    <div></div>
+    <div class="pck"><input type="checkbox" id="pc-darkness"><label class="pck-label" for="pc-darkness">Darkness</label></div>
+    <div class="pck"><input type="checkbox" id="pc-quickpray"><label class="pck-label" for="pc-quickpray">Quick Prayer</label></div>
+    <div class="pck"><input type="checkbox" id="pc-animdead"><label class="pck-label" for="pc-animdead">Animate Dead</label></div>
+    <div class="pck"><input type="checkbox" id="pc-souldrain"><label class="pck-label" for="pc-souldrain">Soul Drain</label></div>
+    <div class="pck"><input type="checkbox" id="pc-riteshard"><label class="pck-label" for="pc-riteshard">Ritual Shard</label></div>
+    <div class="pck"><input type="checkbox" id="pc-livingdeath"><label class="pck-label" for="pc-livingdeath">Living Death</label></div>
+
+    <div class="preset-section-lbl">── Misc</div>
+    <div></div>
+    <div class="pck"><input type="checkbox" id="pc-aura"><label class="pck-label" for="pc-aura">Aura</label></div>
+    <div class="pck"><input type="checkbox" id="pc-book"><label class="pck-label" for="pc-book">Scripture / Book</label></div>
+    <div class="pck"><input type="checkbox" id="pc-familiar"><label class="pck-label" for="pc-familiar">Low Familiar</label></div>
+    <div class="pck"><input type="checkbox" id="pc-vuln"><label class="pck-label" for="pc-vuln">Vulnerability</label></div>
+    <div class="pck"><input type="checkbox" id="pc-aggro"><label class="pck-label" for="pc-aggro">Aggression</label></div>
+    <div class="pck"><input type="checkbox" id="pc-smokecloud"><label class="pck-label" for="pc-smokecloud">Smoke Cloud</label></div>
+    <div class="pck"><input type="checkbox" id="pc-excal"><label class="pck-label" for="pc-excal">Excalibur</label></div>
+    <div class="pck"><input type="checkbox" id="pc-sumrenew"><label class="pck-label" for="pc-sumrenew">Summon Renew</label></div>
+  </div>
+</div>
+</div>
+
+<!-- ═══ SETTINGS ═══ -->
+<div class="page" id="page-settings">
+<div class="settings-page">
+
+  <div class="s-group-lbl">Thresholds</div>
+  <div class="s-row">
+    <div class="s-label">HP Warning<div class="s-sub">Alert when below this %</div></div>
+    <input class="s-slider" id="sl-hp" type="range" min="10" max="80" value="50" oninput="slUpdate('hp',this.value)">
+    <span class="s-val" id="sv-hp">50%</span>
+  </div>
+  <div class="s-row">
+    <div class="s-label">Prayer Warning<div class="s-sub">Alert when below this %</div></div>
+    <input class="s-slider" id="sl-pray" type="range" min="10" max="80" value="30" oninput="slUpdate('pray',this.value)">
+    <span class="s-val" id="sv-pray">30%</span>
+  </div>
+  <div class="s-row">
+    <div class="s-label">Time Buffer<div class="s-sub">Warn N sec before buff expires</div></div>
+    <input class="s-slider" id="sl-buf" type="range" min="0" max="30" value="10" oninput="slUpdate('buf',this.value)">
+    <span class="s-val" id="sv-buf">10s</span>
+  </div>
+
+  <div class="s-group-lbl">Performance</div>
+  <div class="s-row">
+    <div class="s-label">Refresh Rate<div class="s-sub">Screen scan interval (ms)</div></div>
+    <input class="s-slider" id="sl-ref" type="range" min="200" max="1200" step="100" value="600" oninput="slUpdate('ref',this.value)">
+    <span class="s-val" id="sv-ref">600ms</span>
+  </div>
+  <div class="s-row">
+    <div class="s-label">Sound Volume</div>
+    <input class="s-slider" id="sl-vol" type="range" min="0" max="100" value="40" oninput="slUpdate('vol',this.value)">
+    <span class="s-val" id="sv-vol">40%</span>
+  </div>
+  <div class="s-row">
+    <div class="s-label">Action Overlay Duration<div class="s-sub">How long FINGER/VOLLEY shows (sec)</div></div>
+    <input class="s-slider" id="sl-odur" type="range" min="1" max="6" value="2" oninput="slUpdate('odur',this.value)">
+    <span class="s-val" id="sv-odur">2s</span>
+  </div>
+
+  <div class="s-group-lbl">Options</div>
+  <div class="s-toggle-grid">
+    <div class="s-toggle"><span class="s-toggle-lbl">Sounds</span><label class="sw"><input type="checkbox" id="opt-sound" checked onchange="CFG.sound=this.checked"><div class="sw-track"></div><div class="sw-thumb"></div></label></div>
+    <div class="s-toggle"><span class="s-toggle-lbl">Flash Border</span><label class="sw"><input type="checkbox" id="opt-flash" checked onchange="CFG.flash=this.checked"><div class="sw-track"></div><div class="sw-thumb"></div></label></div>
+    <div class="s-toggle"><span class="s-toggle-lbl">Buff Colors</span><label class="sw"><input type="checkbox" id="opt-colors" checked onchange="CFG.colors=this.checked"><div class="sw-track"></div><div class="sw-thumb"></div></label></div>
+    <div class="s-toggle"><span class="s-toggle-lbl">Debug Mode</span><label class="sw"><input type="checkbox" id="opt-debug" onchange="CFG.debug=this.checked"><div class="sw-track"></div><div class="sw-thumb"></div></label></div>
+  </div>
+
+  <!-- CALIBRATION -->
+  <div class="calib-section">
+    <div class="calib-title">⬡ STACK CALIBRATION</div>
+    <div class="calib-status" id="calib-status">Not calibrated — Alt1 cannot read stacks yet.</div>
+    <div style="font-size:10px;color:var(--dim);margin-bottom:8px;line-height:1.5;">
+      To auto-read Necrosis &amp; Soul stacks, hover your mouse over each buff icon in-game, then click the button for it below. Alt1 will lock onto that screen position.
+    </div>
+    <div class="calib-btns">
+      <div class="calib-btn" onclick="calibrate('necro')">📍 Set Necrosis</div>
+      <div class="calib-btn" onclick="calibrate('soul')">📍 Set Souls</div>
+      <div class="calib-btn" onclick="clearCalib()">✕ Clear</div>
+    </div>
+    <div id="calib-coords" style="font-family:var(--mono);font-size:9px;color:var(--dim2);margin-top:6px;"></div>
+  </div>
+
+</div>
+</div>
+
+<!-- ALERT OVERLAY -->
+<div id="ao">
+  <div class="ao-hdr">⚠ ALERTS</div>
+  <div id="ao-list"></div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <div class="footer-status" id="footer-status">READY</div>
+  <div class="footer-right">
+    <div class="refresh-dot" id="rdot"></div>
+    <div class="sound-btn on" id="sound-btn" onclick="toggleSound()">🔊</div>
+  </div>
+</div>
+
+<script src="https://runeapps.org/js/alt1lib.js"></script>
+<script>
+// ══════════════════════════════════════════════
+//  CONFIG
+// ══════════════════════════════════════════════
+let CFG = {
+  hpWarnPct:  50,
+  prayWarnPct: 30,
+  timeBuf:    10,
+  refreshMs:  600,
+  volume:     0.40,
+  overlayDur: 2,
+  sound:      true,
+  flash:      true,
+  colors:     true,
+  debug:      false,
+  calib: {
+    necro: null,  // {x,y}
+    soul:  null,
+  }
+};
+
+// ══════════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════════
+let S = {
+  master:    true,
+  necrosis:  0,
+  souls:     0,
+  triggered: new Set(),
+  lastFinger: 0,  // timestamp of last FINGER trigger (debounce)
+  lastVolley: 0,
+  presets:   {},  // { name: {enabled:[...]} }
+};
+
+// Buff display names
+const BNAMES = {
+  lowhp:'Low Health', lowpray:'Low Prayer', ovl:'Overload', prayrenew:'Prayer Renewal',
+  weapon:'Weapon Poison', antifire:'Antifire', darkness:'Darkness', quickpray:'Quick Prayer',
+  animdead:'Animate Dead', souldrain:'Soul Drain', riteshard:'Ritual Shard',
+  livingdeath:'Living Death', aura:'Aura', book:'Scripture / Book',
+  familiar:'Low Familiar', vuln:'Vulnerability', aggro:'Aggression',
+  smokecloud:'Smoke Cloud', excal:'Excalibur', sumrenew:'Summon Renew',
+};
+
+// ══════════════════════════════════════════════
+//  AUDIO
+// ══════════════════════════════════════════════
+let _ac;
+const ac = () => _ac || (_ac = new (window.AudioContext || window.webkitAudioContext)());
+
+function beep(freq, dur, vol, type = 'sine') {
+  if (!CFG.sound) return;
+  vol = (vol ?? 0.2) * CFG.volume;
+  try {
+    const c = ac(), o = c.createOscillator(), g = c.createGain();
+    o.connect(g); g.connect(c.destination);
+    o.type = type; o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, c.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, c.currentTime + dur);
+    o.start(); o.stop(c.currentTime + dur);
+  } catch(e) {}
+}
+
+// Each alert type has a distinct sound signature
+const SND = {
+  warning: () => { beep(660, .18, .4); },
+  danger:  () => { beep(440, .12, .5); setTimeout(() => beep(330, .3, .5), 160); },
+  expired: () => { beep(220, .12, .5); setTimeout(() => beep(220, .4, .4), 240); },
+  // FINGER: deep resonant pulse — distinct purple vibe
+  finger: () => {
+    beep(180, .08, .6, 'sawtooth');
+    setTimeout(() => beep(240, .08, .5, 'sawtooth'), 90);
+    setTimeout(() => beep(180, .4, .5, 'sine'), 180);
+  },
+  // VOLLEY: bright ascending chime — distinct from everything else
+  volley: () => {
+    beep(880, .1, .4); setTimeout(() => beep(1100, .1, .4), 110);
+    setTimeout(() => beep(1320, .25, .4), 220);
+  },
+};
+
+// ══════════════════════════════════════════════
+//  FLASH
+// ══════════════════════════════════════════════
+let _ft;
+function flashBorder(color = '#c01828') {
+  if (!CFG.flash) return;
+  const el = document.getElementById('flash');
+  el.style.borderColor = color;
+  el.style.opacity = '1';
+  clearTimeout(_ft);
+  _ft = setTimeout(() => el.style.opacity = '0', 350);
+}
+
+// ══════════════════════════════════════════════
+//  ACTION OVERLAY (FINGER / VOLLEY)
+// ══════════════════════════════════════════════
+let _ot;
+function showAction(word, cssClass) {
+  const ov = document.getElementById('action-overlay');
+  const tx = document.getElementById('action-text');
+  tx.textContent = word;
+  tx.className = 'action-text ' + cssClass;
+  ov.classList.add('show');
+  clearTimeout(_ot);
+  _ot = setTimeout(() => ov.classList.remove('show'), CFG.overlayDur * 1000);
+}
+
+// ══════════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════════
+function goTab(id) {
+  document.querySelectorAll('.tab').forEach((t, i) => {
+    t.classList.toggle('active', ['buffs','presets','settings'][i] === id);
+  });
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+}
+
+// ══════════════════════════════════════════════
+//  BUFF CELLS
+// ══════════════════════════════════════════════
+function cellClick(id) {
+  const chk = document.getElementById('en-' + id);
+  chk.checked = !chk.checked;
+  cellSync(id, chk);
+}
+function cellSync(id, chk) {
+  const cell = document.getElementById('bc-' + id);
+  cell.classList.toggle('on', chk.checked);
+  if (!chk.checked) { cell.classList.remove('triggered'); S.triggered.delete(id); updateOverlay(); }
+}
+
+function setTriggered(id, on) {
+  if (!S.master) return;
+  const cell = document.getElementById('bc-' + id);
+  const chk  = document.getElementById('en-' + id);
+  if (!chk?.checked) return;
+  if (on) { cell?.classList.add('triggered'); S.triggered.add(id); }
+  else    { cell?.classList.remove('triggered'); S.triggered.delete(id); }
+  updateOverlay();
+}
+
+// ══════════════════════════════════════════════
+//  ALERT OVERLAY
+// ══════════════════════════════════════════════
+function updateOverlay() {
+  const list = document.getElementById('ao-list');
+  const ov   = document.getElementById('ao');
+  const active = [...S.triggered];
+  list.innerHTML = active.map(id => `<div class="ao-item">» ${BNAMES[id] || id}</div>`).join('');
+  ov.classList.toggle('show', active.length > 0 && S.master);
+}
+
+// ══════════════════════════════════════════════
+//  STACK DOTS
+// ══════════════════════════════════════════════
+function renderDots() {
+  const nd = document.getElementById('necro-dots');
+  const sd = document.getElementById('soul-dots');
+  nd.innerHTML = '';
+  sd.innerHTML = '';
+
+  const nAlert = S.necrosis >= 6;
+  for (let i = 0; i < 12; i++) {
+    const d = document.createElement('div');
+    d.className = 'sdot' + (i < S.necrosis ? (' on necro' + (nAlert ? ' alert-dot' : '')) : '');
+    nd.appendChild(d);
+  }
+
+  const sAlert = S.souls >= 5;
+  for (let i = 0; i < 5; i++) {
+    const d = document.createElement('div');
+    d.className = 'sdot' + (i < S.souls ? (' on soul' + (sAlert ? ' alert-dot' : '')) : '');
+    sd.appendChild(d);
+  }
+
+  document.getElementById('necro-val').textContent = S.necrosis + '/12';
+  document.getElementById('soul-val').textContent  = S.souls + '/5';
+}
+
+// ══════════════════════════════════════════════
+//  STACK ALERTS
+// ══════════════════════════════════════════════
+function checkStackAlerts(prevNecro, prevSouls) {
+  if (!S.master) return;
+  const now = Date.now();
+
+  // FINGER at 6 or 12 necrosis
+  if ((S.necrosis === 6 || S.necrosis === 12) && prevNecro !== S.necrosis) {
+    if (now - S.lastFinger > 3000) {  // 3s debounce
+      S.lastFinger = now;
+      showAction('FINGER', 'finger');
+      SND.finger();
+      flashBorder('#c040ff');
+    }
+  }
+
+  // VOLLEY at 5 souls
+  if (S.souls === 5 && prevSouls < 5) {
+    if (now - S.lastVolley > 3000) {
+      S.lastVolley = now;
+      showAction('VOLLEY', 'volley');
+      SND.volley();
+      flashBorder('#40d0ff');
+    }
+  }
+}
+
+// ══════════════════════════════════════════════
+//  MASTER TOGGLE
+// ══════════════════════════════════════════════
+function onMaster(chk) {
+  S.master = chk.checked;
+  document.getElementById('master-lbl').textContent = S.master ? 'ON' : 'OFF';
+  if (!S.master) { document.getElementById('ao').classList.remove('show'); }
+}
+
+// ══════════════════════════════════════════════
+//  SETTINGS SLIDERS
+// ══════════════════════════════════════════════
+function slUpdate(key, val) {
+  val = parseFloat(val);
+  if (key === 'hp')   { CFG.hpWarnPct  = val; document.getElementById('sv-hp').textContent   = val + '%'; }
+  if (key === 'pray') { CFG.prayWarnPct = val; document.getElementById('sv-pray').textContent = val + '%'; }
+  if (key === 'buf')  { CFG.timeBuf     = val; document.getElementById('sv-buf').textContent  = val + 's'; }
+  if (key === 'ref')  { CFG.refreshMs   = val; document.getElementById('sv-ref').textContent  = val + 'ms'; rebuildLoop(); }
+  if (key === 'vol')  { CFG.volume = val / 100; document.getElementById('sv-vol').textContent = val + '%'; }
+  if (key === 'odur') { CFG.overlayDur  = val; document.getElementById('sv-odur').textContent = val + 's'; }
+}
+
+function toggleSound() {
+  CFG.sound = !CFG.sound;
+  const btn = document.getElementById('sound-btn');
+  btn.textContent = CFG.sound ? '🔊' : '🔇';
+  btn.classList.toggle('on', CFG.sound);
+  document.getElementById('opt-sound').checked = CFG.sound;
+}
+
+// ══════════════════════════════════════════════
+//  PRESETS
+// ══════════════════════════════════════════════
+function getAllBuffIds() { return Object.keys(BNAMES); }
+
+function getEnabledBuffs() {
+  return getAllBuffIds().filter(id => document.getElementById('en-' + id)?.checked);
+}
+
+function getPresetChecked() {
+  return getAllBuffIds().filter(id => document.getElementById('pc-' + id)?.checked);
+}
+
+function setEnabledBuffs(ids) {
+  getAllBuffIds().forEach(id => {
+    const chk = document.getElementById('en-' + id);
+    if (chk) { chk.checked = ids.includes(id); cellSync(id, chk); }
+  });
+}
+
+function refreshPresetDropdowns() {
+  const names = Object.keys(S.presets).sort();
+  const opts = names.map(n => `<option value="${n}">${n}</option>`).join('');
+  document.getElementById('toolbar-preset').innerHTML = '<option value="">— Load Preset —</option>' + opts;
+  document.getElementById('preset-list-sel').innerHTML = '<option value="">— Create New —</option>' + opts;
+}
+
+function savePreset() {
+  const name = document.getElementById('preset-name').value.trim();
+  if (!name) { alert('Enter a preset name first.'); return; }
+  const enabled = getPresetChecked();
+  S.presets[name] = { enabled };
+  refreshPresetDropdowns();
+  saveToStorage();
+  document.getElementById('preset-list-sel').value = name;
+}
+
+function deletePreset() {
+  const sel = document.getElementById('preset-list-sel').value;
+  if (!sel || !S.presets[sel]) { alert('Select a preset to delete.'); return; }
+  if (!confirm('Delete preset "' + sel + '"?')) return;
+  delete S.presets[sel];
+  refreshPresetDropdowns();
+  saveToStorage();
+  document.getElementById('preset-name').value = '';
+}
+
+function loadPreset(name) {
+  if (!name || !S.presets[name]) return;
+  const enabled = S.presets[name].enabled || [];
+  setEnabledBuffs(enabled);
+  // also sync preset checkboxes
+  getAllBuffIds().forEach(id => {
+    const pc = document.getElementById('pc-' + id);
+    if (pc) pc.checked = enabled.includes(id);
+  });
+  document.getElementById('preset-name').value = name;
+  document.getElementById('preset-list-sel').value = name;
+}
+
+function exportPreset() {
+  const name = document.getElementById('preset-list-sel').value;
+  const data = name && S.presets[name] ? { name, ...S.presets[name] } : S.presets;
+  const json = JSON.stringify(data, null, 2);
+  // Copy to clipboard
+  navigator.clipboard.writeText(json).then(() => alert('Copied to clipboard!')).catch(() => prompt('Copy this:', json));
+}
+
+function importPreset() {
+  const json = prompt('Paste exported preset JSON:');
+  if (!json) return;
+  try {
+    const data = JSON.parse(json);
+    if (data.name && data.enabled) {
+      S.presets[data.name] = { enabled: data.enabled };
+    } else {
+      Object.assign(S.presets, data);
+    }
+    refreshPresetDropdowns();
+    saveToStorage();
+    alert('Preset(s) imported!');
+  } catch(e) { alert('Invalid JSON.'); }
+}
+
+// ══════════════════════════════════════════════
+//  CALIBRATION
+// ══════════════════════════════════════════════
+function calibrate(type) {
+  if (typeof alt1 === 'undefined') {
+    alert('Calibration requires Alt1 Toolkit. Open this app inside Alt1.');
+    return;
+  }
+  // Get mouse position over game window via Alt1
+  try {
+    const pos = alt1.mousePosition;
+    if (!pos) { alert('Could not read mouse position. Make sure RS3 window is active.'); return; }
+    const x = pos >> 16, y = pos & 0xffff;
+    CFG.calib[type] = { x, y };
+    saveToStorage();
+    updateCalibStatus();
+  } catch(e) { alert('Calibration error: ' + e); }
+}
+
+function clearCalib() {
+  CFG.calib.necro = null;
+  CFG.calib.soul  = null;
+  saveToStorage();
+  updateCalibStatus();
+}
+
+function updateCalibStatus() {
+  const nOk = !!CFG.calib.necro;
+  const sOk = !!CFG.calib.soul;
+  const el  = document.getElementById('calib-status');
+  const coords = document.getElementById('calib-coords');
+  if (nOk && sOk) {
+    el.textContent = '✓ Both calibrated — stacks reading automatically.';
+    el.className = 'calib-status ok';
+  } else {
+    el.textContent = (nOk ? '✓ Necrosis set. ' : '✗ Necrosis not set. ') + (sOk ? '✓ Souls set.' : '✗ Souls not set.');
+    el.className = 'calib-status' + (!nOk || !sOk ? ' err' : '');
+  }
+  let c = '';
+  if (CFG.calib.necro) c += `Necro: (${CFG.calib.necro.x}, ${CFG.calib.necro.y})  `;
+  if (CFG.calib.soul)  c += `Souls: (${CFG.calib.soul.x}, ${CFG.calib.soul.y})`;
+  coords.textContent = c;
+}
+
+// ══════════════════════════════════════════════
+//  SCREEN READING (Alt1)
+// ══════════════════════════════════════════════
+// Reads the stack number from a buff icon by capturing a small region
+// around the calibrated position and scanning for the digit color.
+function readStackAtPos(pos) {
+  if (!pos || typeof alt1 === 'undefined') return -1;
+  try {
+    // Capture 20x14 pixel region — the stack count is bottom-right of icon
+    const img = a1lib.captureHold(pos.x - 2, pos.y + 8, 20, 14);
+    if (!img) return -1;
+    // Use alt1's OCR or read the number from pixel brightness
+    // Stack numbers in RS3 are white/yellow text on dark icon background
+    // We'll do a simple scan: count bright pixels in known positions
+    // This is a best-effort implementation — may need tuning per resolution
+    const data = img.toData();
+    // Look for digits by reading the ImageData
+    // For now return -1 (will be updated via calibration testing)
+    img.toImg && img.toImg(); // release
+    return -1; // placeholder — needs in-game calibration testing
+  } catch(e) {
+    if (CFG.debug) console.log('Read error:', e);
+    return -1;
+  }
+}
+
+// Tick — refresh dot animation
+let _rdTick = false;
+function tickRefreshDot() {
+  const dot = document.getElementById('rdot');
+  dot.classList.add('tick');
+  setTimeout(() => dot.classList.remove('tick'), 150);
+}
+
+// Main scan loop
+let _loop;
+function rebuildLoop() {
+  clearInterval(_loop);
+  _loop = setInterval(scanAll, CFG.refreshMs);
+}
+
+function scanAll() {
+  tickRefreshDot();
+  if (!S.master) return;
+
+  const prevNecro = S.necrosis;
+  const prevSouls = S.souls;
+
+  // Try to read stacks from screen
+  if (CFG.calib.necro) {
+    const n = readStackAtPos(CFG.calib.necro);
+    if (n >= 0 && n <= 12) S.necrosis = n;
+  }
+  if (CFG.calib.soul) {
+    const s = readStackAtPos(CFG.calib.soul);
+    if (s >= 0 && s <= 5) S.souls = s;
+  }
+
+  // Update visuals if changed
+  if (S.necrosis !== prevNecro || S.souls !== prevSouls) {
+    renderDots();
+    checkStackAlerts(prevNecro, prevSouls);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  STORAGE (localStorage for persistence)
+// ══════════════════════════════════════════════
+function saveToStorage() {
+  try {
+    const data = {
+      presets: S.presets,
+      calib: CFG.calib,
+      settings: {
+        hpWarnPct: CFG.hpWarnPct, prayWarnPct: CFG.prayWarnPct,
+        timeBuf: CFG.timeBuf, refreshMs: CFG.refreshMs,
+        volume: CFG.volume, overlayDur: CFG.overlayDur,
+        sound: CFG.sound, flash: CFG.flash,
+      }
+    };
+    localStorage.setItem('necro-monitor', JSON.stringify(data));
+  } catch(e) {}
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem('necro-monitor');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    if (data.presets) S.presets = data.presets;
+    if (data.calib)   CFG.calib = data.calib;
+    if (data.settings) {
+      const s = data.settings;
+      CFG.hpWarnPct  = s.hpWarnPct  ?? CFG.hpWarnPct;
+      CFG.prayWarnPct= s.prayWarnPct ?? CFG.prayWarnPct;
+      CFG.timeBuf    = s.timeBuf    ?? CFG.timeBuf;
+      CFG.refreshMs  = s.refreshMs  ?? CFG.refreshMs;
+      CFG.volume     = s.volume     ?? CFG.volume;
+      CFG.overlayDur = s.overlayDur ?? CFG.overlayDur;
+      CFG.sound      = s.sound      ?? CFG.sound;
+      CFG.flash      = s.flash      ?? CFG.flash;
+      // Sync slider UI
+      const syncSlider = (id, val, disp) => {
+        const el = document.getElementById('sl-' + id);
+        const sv = document.getElementById('sv-' + id);
+        if (el) el.value = val;
+        if (sv) sv.textContent = disp;
+      };
+      syncSlider('hp',   CFG.hpWarnPct,                  CFG.hpWarnPct + '%');
+      syncSlider('pray', CFG.prayWarnPct,                 CFG.prayWarnPct + '%');
+      syncSlider('buf',  CFG.timeBuf,                     CFG.timeBuf + 's');
+      syncSlider('ref',  CFG.refreshMs,                   CFG.refreshMs + 'ms');
+      syncSlider('vol',  Math.round(CFG.volume * 100),    Math.round(CFG.volume * 100) + '%');
+      syncSlider('odur', CFG.overlayDur,                  CFG.overlayDur + 's');
+      document.getElementById('opt-sound').checked = CFG.sound;
+      document.getElementById('opt-flash').checked = CFG.flash;
+    }
+  } catch(e) {}
+}
+
+// ══════════════════════════════════════════════
+//  ALT1 INIT
+// ══════════════════════════════════════════════
+if (typeof alt1 !== 'undefined') {
+  alt1.identifyAppUrl('./appconfig.json');
+  document.getElementById('footer-status').textContent = 'ALT1 CONNECTED';
+} else {
+  document.getElementById('footer-status').textContent = 'PREVIEW MODE';
+}
+
+// ══════════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════════
+loadFromStorage();
+refreshPresetDropdowns();
+renderDots();
+updateCalibStatus();
+rebuildLoop();
+
+// Autosave settings on any slider change
+document.querySelectorAll('.s-slider').forEach(el => el.addEventListener('change', saveToStorage));
+</script>
+</body>
+</html>

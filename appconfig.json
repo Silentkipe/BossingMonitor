@@ -1,8 +1,0 @@
-{
-  "appName": "Necro Boss Monitor",
-  "appUrl": "index.html",
-  "startSize": [290, 480],
-  "repositionMode": "detached",
-  "iconUrl": "",
-  "permissions": ["gamestate", "overlay", "capture"]
-}

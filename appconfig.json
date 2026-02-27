@@ -1,8 +1,0 @@
-{
-  "name": "Necro Boss Monitor",
-  "version": "1.0.0",
-  "description": "Necromancy bossing alerts — buffs, HP, prayer, FINGER and VOLLEY.",
-  "navbutton": true,
-  "permissions": ["screen", "overlay"],
-  "main": "index.html"
-}
